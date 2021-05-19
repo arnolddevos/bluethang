@@ -39,10 +39,10 @@ public:
      */
     void start()
     {
-        printf("Ble process started.\r\n");
+        println("Ble process started.\r\n");
 
         if (_ble.hasInitialized()) {
-            printf("Error: the ble instance has already been initialized.\r\n");
+            println("Error: the ble instance has already been initialized.\r\n");
             return;
         }
 
@@ -77,7 +77,7 @@ public:
     {
         if (_ble.hasInitialized()) {
             _ble.shutdown();
-            printf("Ble process stopped.");
+            println("Ble process stopped.");
         }
     }
 
@@ -119,7 +119,7 @@ protected:
             return;
         }
 
-        printf("Ble instance initialized\r\n");
+        println("Ble instance initialized\r\n");
 
         /* All calls are serialised on the user thread through the event queue */
         start_activity();
@@ -136,13 +136,13 @@ protected:
     void onConnectionComplete(const ble::ConnectionCompleteEvent &event) override
     {
         if (event.getStatus() == BLE_ERROR_NONE) {
-            printf("Connected to: ");
+            print("Connected to: ");
             print_address(event.getPeerAddress());
             if (_post_connect_cb) {
                 _post_connect_cb(_ble, _event_queue, event);
             }
         } else {
-            printf("Failed to connect\r\n");
+            println("Failed to connect\r\n");
             start_activity();
         }
     }
@@ -153,7 +153,7 @@ protected:
      */
     void onDisconnectionComplete(const ble::DisconnectionCompleteEvent &event) override
     {
-        printf("Disconnected.\r\n");
+        println("Disconnected.\r\n");
         start_activity();
     }
 
@@ -191,7 +191,7 @@ protected:
         error = _gap.setAdvertisingParameters(_adv_handle, adv_params);
 
         if (error) {
-            printf("_ble.gap().setAdvertisingParameters() failed\r\n");
+            println("_ble.gap().setAdvertisingParameters() failed\r\n");
             return;
         }
 
@@ -216,7 +216,8 @@ protected:
             return;
         }
 
-        printf("Advertising as \"%s\"\r\n", get_device_name());
+        print("Advertising as: ");
+        println(get_device_name());
     }
 
     /**
@@ -227,7 +228,7 @@ protected:
         _event_queue.call(mbed::callback(&event->ble, &BLE::processEvents));
     }
 
-protected:
+private:
     events::EventQueue &_event_queue;
     BLE &_ble;
     const char* _name;

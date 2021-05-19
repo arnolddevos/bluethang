@@ -19,7 +19,7 @@ public:
         _writable_characteristic = new ReadWriteGattCharacteristic<uint8_t> (uuid, &_characteristic_value);
 
         if (!_writable_characteristic) {
-            printf("Allocation of ReadWriteGattCharacteristic failed\r\n");
+            println("Allocation of ReadWriteGattCharacteristic failed\r\n");
         }
     }
 
@@ -37,8 +37,8 @@ public:
 
         ble.gattServer().setEventHandler(this);
 
-        printf("Example service added with UUID 0xA000\r\n");
-        printf("Connect and write to characteristic 0xA001\r\n");
+        println("Example service added with UUID 0xA000\r\n");
+        println("Connect and write to characteristic 0xA001\r\n");
     }
 
 private:
@@ -50,7 +50,9 @@ private:
     virtual void onDataWritten(const GattWriteCallbackParams &params)
     {
         if ((params.handle == _writable_characteristic->getValueHandle()) && (params.len == 1)) {
-            printf("New characteristic value written: %x\r\n", *(params.data));
+            print("New characteristic value written: ");
+            print(*(params.data));
+            println();
         }
     }
 
@@ -63,7 +65,8 @@ int main()
 {
     BLE &ble = BLE::Instance();
 
-    printf("\r\nGattServer demo of a writable characteristic\r\n");
+    println();
+    println("\r\nGattServer demo of a writable characteristic\r\n");
 
     GattServerDemo demo;
 
