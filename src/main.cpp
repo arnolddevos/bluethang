@@ -1,4 +1,5 @@
 #include <mbed.h>
+#include "pretty_printer.h"
 #include "ble_process.h"
 
 using namespace mbed;
@@ -51,7 +52,7 @@ private:
     {
         if ((params.handle == _writable_characteristic->getValueHandle()) && (params.len == 1)) {
             print("New characteristic value written: ");
-            print(*(params.data));
+            print_hex(*(params.data));
             println();
         }
     }
