@@ -12,6 +12,7 @@ static Trace trace;
 class RadioThread : private Gap::EventHandler, GattServer::EventHandler
 {
 public:
+
     RadioThread(const char *_name) : name(_name), controller(BLE::Instance()), thread(), queue(2048)
     {
         if(controller.hasInitialized())
@@ -28,6 +29,14 @@ public:
         controller.shutdown();
     }
 
+    void addService(GattService &service)
+    {
+        queue.call([&] {
+            controller.gattServer().addService(service);
+        });
+    }
+
+private:
     void ready(BLE::InitializationCompleteCallbackContext *context)
     {
         if(context && context->error)
@@ -128,16 +137,20 @@ public:
         queue.call(&controller, &BLE::processEvents);
     }
 
-
-private:
     const char* name;
     BLE &controller;
     Thread thread;
-    EventQueue queue;
     uint8_t buffer[50];
+    EventQueue queue;
+
 };
 
-RadioThread& Radio::queue()
+void Radio::addService(GattService &service)
+{
+    thread().addService(service);
+}
+
+RadioThread& Radio::thread()
 {
     static RadioThread inst("Arduino Nano");
     return inst;

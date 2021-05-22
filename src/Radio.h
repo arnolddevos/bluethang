@@ -1,11 +1,15 @@
 #include <mbed.h>
+#include <ble/BLE.h>
 
 class RadioThread;
 
 class Radio
 {
 public:
-    RadioThread& queue();
+    void addService(GattService &service);
+
+private:
+    RadioThread& thread();
 
 
 };
