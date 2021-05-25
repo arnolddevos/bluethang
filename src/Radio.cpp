@@ -9,11 +9,9 @@ using namespace ble;
 
 static Trace trace;
 
-class RadioThread : private Gap::EventHandler, GattServer::EventHandler
+struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Radio
 {
-public:
-
-    RadioThread(const char *_name) : name(_name), controller(BLE::Instance()), thread(), queue(2048)
+    RadioThread(const char *_name) : name(_name), thread()
     {
         if(controller.hasInitialized())
         { 
@@ -29,6 +27,10 @@ public:
         controller.shutdown();
     }
 
+    const char* name;
+    Thread thread;
+    uint8_t buffer[50];
+
     void addService(GattService &service)
     {
         queue.call([&] {
@@ -36,7 +38,6 @@ public:
         });
     }
 
-private:
     void ready(BLE::InitializationCompleteCallbackContext *context)
     {
         if(context && context->error)
@@ -136,21 +137,9 @@ private:
     {
         queue.call(&controller, &BLE::processEvents);
     }
-
-    const char* name;
-    BLE &controller;
-    Thread thread;
-    uint8_t buffer[50];
-    EventQueue queue;
-
 };
 
-void Radio::addService(GattService &service)
-{
-    thread().addService(service);
-}
-
-RadioThread& Radio::thread()
+Radio& Radio::instance()
 {
     static RadioThread inst("Arduino Nano");
     return inst;
