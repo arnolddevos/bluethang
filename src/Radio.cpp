@@ -11,32 +11,24 @@ static Trace trace;
 
 struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Radio
 {
-    RadioThread(const char *_name) : name(_name), thread()
+    RadioThread()
     {
-        if(controller.hasInitialized())
+        if(ble.hasInitialized())
         { 
             trace("BLE controller already initialised");
             ready(nullptr);
         }
         else 
-            controller.init(this, &RadioThread::ready);
+            ble.init(this, &RadioThread::ready);
     }
 
     ~RadioThread()
     {
-        controller.shutdown();
+        ble.shutdown();
     }
 
-    const char* name;
     Thread thread;
     uint8_t buffer[50];
-
-    void addService(GattService &service)
-    {
-        queue.call([&] {
-            controller.gattServer().addService(service);
-        });
-    }
 
     void ready(BLE::InitializationCompleteCallbackContext *context)
     {
@@ -51,8 +43,8 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Radio
     void main()
     {
         trace("BLE thread running");
-        controller.onEventsToProcess(makeFunctionPointer(this, &RadioThread::eventToProcess));
-        controller.gap().setEventHandler(this);
+        ble.onEventsToProcess(makeFunctionPointer(this, &RadioThread::eventToProcess));
+        ble.gap().setEventHandler(this);
         startAdvertising();
         queue.dispatch_forever();
 
@@ -90,7 +82,7 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Radio
     {
         ble_error_t error;
 
-        auto &gap = controller.gap();
+        auto &gap = ble.gap();
         auto handle = LEGACY_ADVERTISING_HANDLE;
 
         if (gap.isAdvertisingActive(handle)) {
@@ -135,12 +127,12 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Radio
 
     void eventToProcess(BLE::OnEventsToProcessCallbackContext *context)
     {
-        queue.call(&controller, &BLE::processEvents);
+        queue.call(&ble, &BLE::processEvents);
     }
 };
 
 Radio& Radio::instance()
 {
-    static RadioThread inst("Arduino Nano");
+    static RadioThread inst;
     return inst;
 }

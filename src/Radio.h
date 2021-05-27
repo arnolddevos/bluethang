@@ -11,31 +11,33 @@ class Radio
 public:
     using duration = EventQueue::duration;
 
+    static constexpr const char* name = "Arduino Nano";
+
     template <typename F, typename... ArgTs>
     static int call(F f, ArgTs... args)
     {
         auto &r = instance();
-        return r.queue.call(f, r, args...);
+        return r.queue.call(f, &r.ble, args...);
     }
 
     template <typename F, typename... ArgTs>
     static int call_every(duration d, F f, ArgTs... args)
     {
         auto &r = instance();
-        return r.queue.call_every(d, f, r, args...);
+        return r.queue.call_every(d, f, &r.ble, args...);
     }
 
     template <typename F, typename... ArgTs>
     static int call_in(duration d, F f, ArgTs... args)
     {
         auto &r = instance();
-        return r.queue.call_in(d, f, r, args...);
+        return r.queue.call_in(d, f, &r.ble, args...);
     }
-
-    BLE &controller;
-
+ 
 protected:
-    Radio() : controller(BLE::Instance()), queue(2048) {};
+    Radio() : ble(BLE::Instance()), queue(2048) {};
+
+    BLE &ble;
     EventQueue queue;
     static Radio& instance();
 
