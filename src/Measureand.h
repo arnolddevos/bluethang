@@ -30,33 +30,54 @@ struct Registration
     }
 };
 
+template<typename A>
 struct Measurement3D
 {
-    Measurement3D(uint16_t x, uint16_t y, uint16_t z, uint16_t t) : axis { x, y, z, t} {}
+    Measurement3D(A x, A y, A z, unsigned short t)  {
+        *ap(0) = x;
+        *ap(1) = y;
+        *ap(2) = z;
+        *tp() = t;
+    }
     Measurement3D() = delete;
 
-    uint16_t axis[4];
+    unsigned char _buffer[sizeof(A)*3 + sizeof(unsigned short)];
 
-    uint8_t* buffer() { return reinterpret_cast<uint8_t*>(axis); } // endian - shmedian
-    uint16_t length() { return uint16_t(sizeof(uint16_t) * 4); } 
+    A *ap(unsigned i) { return reinterpret_cast<A*>(_buffer + sizeof(A)*i); }
+    unsigned short *tp() { return reinterpret_cast<unsigned short*>(_buffer + sizeof(A)*3); }
+
+    uint8_t* buffer() { return _buffer; } // endian - shmedian
+    uint16_t length() { return sizeof(_buffer); } 
 
 };
 
+template<typename A>
 class Measureand3D
 {
 public:
-    Measureand3D(const UUID &uuid, uint16_t x, uint16_t y, uint16_t z) : init(x, y, z, 0), last(init), spec(uuid, init.axis) {}
+    Measureand3D(const UUID &uuid, A x, A y, A z) : 
+        init(x, y, z, 0), 
+        last(init), 
+        spec(
+            uuid,
+            init.buffer(),
+            init.length(),
+            init.length(),
+            GattCharacteristic::Properties_t::BLE_GATT_CHAR_PROPERTIES_READ,
+            nullptr,
+            0,
+            false) {}
     Measureand3D(const UUID &uuid) : Measureand3D(uuid, 0, 0, 0) {}
     Measureand3D() = delete;
 
-    Measurement3D init;
-    Measurement3D last;
-    ReadOnlyArrayGattCharacteristic<uint16_t, 4> spec;
+    Measurement3D<A> init;
+    Measurement3D<A> last;
+    GattCharacteristic spec;
     
-    Update<Measurement3D> update(uint16_t x, uint16_t y, uint16_t z)
+    Update<Measurement3D<A>> update(A x, A y, A z)
     {
-        Measurement3D next(x, y, z, last.axis[3]+1);
+        Measurement3D<A> next(x, y, z, *last.tp()+1);
         last = next;
-        return Update<Measurement3D> { &spec.getValueAttribute(), next };
+        return Update<Measurement3D<A>> { &spec.getValueAttribute(), next };
     }
 };
