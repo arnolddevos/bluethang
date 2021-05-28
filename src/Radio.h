@@ -14,21 +14,21 @@ public:
     static constexpr const char* name = "Arduino Nano";
 
     template <typename F, typename... ArgTs>
-    static int call(F f, ArgTs... args)
+    static int submit(F f, ArgTs... args)
     {
         auto &r = instance();
         return r.queue.call(f, &r.ble, args...);
     }
 
     template <typename F, typename... ArgTs>
-    static int call_every(duration d, F f, ArgTs... args)
+    static int submit_every(duration d, F f, ArgTs... args)
     {
         auto &r = instance();
         return r.queue.call_every(d, f, &r.ble, args...);
     }
 
     template <typename F, typename... ArgTs>
-    static int call_in(duration d, F f, ArgTs... args)
+    static int submit_in(duration d, F f, ArgTs... args)
     {
         auto &r = instance();
         return r.queue.call_in(d, f, &r.ble, args...);

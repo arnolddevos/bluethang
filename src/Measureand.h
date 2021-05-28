@@ -18,9 +18,10 @@ struct Update
     }
 };
 
-struct Register
+struct Registration
 {
-    Register(const UUID &uuid, GattCharacteristic *specs[], unsigned len) : service(uuid, specs, len) {}
+    Registration(const UUID &uuid, GattCharacteristic *specs[], unsigned len) : service(uuid, specs, len) {}
+    Registration(GattService s) : service(s) {}
  
     GattService service;
 
