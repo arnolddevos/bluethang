@@ -1,3 +1,4 @@
+#pragma once
 #include <mbed.h>
 #include <ble/BLE.h>
 
@@ -76,7 +77,7 @@ public:
     
     Update<Measurement3D<A>> update(A x, A y, A z)
     {
-        Measurement3D<A> next(x, y, z, *last.tp()+1);
+        Measurement3D<A> next(x, y, z, (*last.tp())+1);
         last = next;
         return Update<Measurement3D<A>> { &spec.getValueAttribute(), next };
     }
