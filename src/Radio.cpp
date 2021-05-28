@@ -9,22 +9,22 @@ using namespace ble;
 
 static Trace trace;
 
-struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Radio
+struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Driver<BLE>
 {
-    RadioThread()
+    RadioThread() : Driver(&BLE::Instance())
     {
-        if(ble.hasInitialized())
+        if((*device).hasInitialized())
         { 
             trace("BLE controller already initialised");
             ready(nullptr);
         }
         else 
-            ble.init(this, &RadioThread::ready);
+            (*device).init(this, &RadioThread::ready);
     }
 
     ~RadioThread()
     {
-        ble.shutdown();
+        (*device).shutdown();
     }
 
     Thread thread;
@@ -43,8 +43,8 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Radio
     void main()
     {
         trace("BLE thread running");
-        ble.onEventsToProcess(makeFunctionPointer(this, &RadioThread::eventToProcess));
-        ble.gap().setEventHandler(this);
+        (*device).onEventsToProcess(makeFunctionPointer(this, &RadioThread::eventToProcess));
+        (*device).gap().setEventHandler(this);
         startAdvertising();
         queue.dispatch_forever();
 
@@ -82,7 +82,7 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Radio
     {
         ble_error_t error;
 
-        auto &gap = ble.gap();
+        auto &gap = (*device).gap();
         auto handle = LEGACY_ADVERTISING_HANDLE;
 
         if (gap.isAdvertisingActive(handle)) {
@@ -105,7 +105,7 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Radio
         AdvertisingDataBuilder builder(buffer);
         builder.clear();
         builder.setFlags();
-        builder.setName(name);
+        builder.setName(Radio::name);
 
         /* Set payload for the set */
         error = gap.setAdvertisingPayload( handle, builder.getAdvertisingData());
@@ -122,16 +122,16 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Radio
             return;
         }
 
-        trace.format("Advertising as: %s\r\n", name);
+        trace.format("Advertising as: %s\r\n", Radio::name);
     }
 
     void eventToProcess(BLE::OnEventsToProcessCallbackContext *context)
     {
-        queue.call(&ble, &BLE::processEvents);
+        queue.call(device, &BLE::processEvents);
     }
 };
 
-Radio& Radio::instance()
+Driver<BLE>& Radio::driver()
 {
     static RadioThread inst;
     return inst;
