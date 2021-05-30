@@ -1,6 +1,7 @@
 #pragma once
 #include <mbed.h>
 #include <ble/BLE.h>
+#include "Measurement.h"
 
 using namespace mbed;
 using namespace ble;
@@ -32,27 +33,6 @@ struct Registration
 };
 
 template<typename A>
-struct Measurement3D
-{
-    Measurement3D(A x, A y, A z, unsigned short t)  {
-        *ap(0) = x;
-        *ap(1) = y;
-        *ap(2) = z;
-        *tp() = t;
-    }
-    Measurement3D() = delete;
-
-    unsigned char _buffer[sizeof(A)*3 + sizeof(unsigned short)];
-
-    A *ap(unsigned i) { return reinterpret_cast<A*>(_buffer + sizeof(A)*i); }
-    unsigned short *tp() { return reinterpret_cast<unsigned short*>(_buffer + sizeof(A)*3); }
-
-    uint8_t* buffer() { return _buffer; } // endian - shmedian
-    uint16_t length() { return sizeof(_buffer); } 
-
-};
-
-template<typename A>
 class Measureand3D
 {
 public:
@@ -74,11 +54,29 @@ public:
     Measurement3D<A> init;
     Measurement3D<A> last;
     GattCharacteristic spec;
+
+    uint16_t count() { return *last.tp(); }
     
     Update<Measurement3D<A>> update(A x, A y, A z)
     {
-        Measurement3D<A> next(x, y, z, (*last.tp())+1);
+        Measurement3D<A> next(x, y, z, count()+1);
         last = next;
         return Update<Measurement3D<A>> { &spec.getValueAttribute(), next };
+    }
+};
+
+template<typename D, typename A>
+struct Sampler3D
+{
+    int (D::*read)(A& x, A& y, A& z);
+    Measureand3D<A>* measureand;
+    Scheduler<BLE>* radio;
+
+    void operator()(D* device)
+    {
+        A x, y, z;
+        device->*read(x, y, x);
+        auto u = measureand->update(*x, *y, *z);
+        radio->submit(u);
     }
 };
