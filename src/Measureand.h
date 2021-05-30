@@ -52,19 +52,3 @@ struct Update
         (*ble).gattServer().write(measureand->spec.getValueHandle(), sample.buffer(), sample.length());
     }
 };
-
-template<typename D, typename A>
-struct Sampler3D
-{
-    int (D::*read)(A& x, A& y, A& z);
-    Measureand<Measurement3D<A>>* measureand;
-    Scheduler<BLE>* radio;
-
-    void operator()(D* device)
-    {
-        A x, y, z;
-        device->*read(x, y, x);
-        auto sample = Measurement3D<A>(x, y, z, 0);
-        radio->submit(Update<Measurement3D<A>>(measureand, sample));
-    }
-};

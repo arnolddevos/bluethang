@@ -1,8 +1,9 @@
 #include "Sensor.h"
 
-Driver<LSM9DS1Class>& Sensor::driver()
+Driver<IMUControl>& Sensor::driver()
 {
-    static Driver<LSM9DS1Class> inst(&IMU);
-    IMU.begin();
+    static IMUControl device;
+    static Driver<IMUControl> inst(&device);
+    device.control.begin();
     return inst;
 }
