@@ -9,7 +9,7 @@ struct Measurement3D
         *ap(2) = z;
         *tp() = t;
     }
-    Measurement3D() = delete;
+    Measurement3D(): Measurement3D(0, 0, 0, 0) {}
 
     unsigned char _buffer[sizeof(A)*3 + sizeof(unsigned short)];
 

@@ -6,20 +6,6 @@
 using namespace mbed;
 using namespace ble;
 
-template<typename M>
-struct Update
-{
-    Update() = delete;
-    
-    GattAttribute* attr;
-    M value;
-
-    void operator()(BLE* ble) 
-    {
-        (*ble).gattServer().write(attr->getHandle(), value.buffer(), value.length());
-    }
-};
-
 struct Registration
 {
     Registration(const UUID &uuid, GattCharacteristic *specs[], unsigned len) : service(uuid, specs, len) {}
@@ -32,13 +18,11 @@ struct Registration
     }
 };
 
-template<typename A>
-class Measureand3D
+template<typename M>
+class Measureand
 {
 public:
-    Measureand3D(const UUID &uuid, A x, A y, A z) : 
-        init(x, y, z, 0), 
-        last(init), 
+    Measureand(const UUID &uuid) : 
         spec(
             uuid,
             init.buffer(),
@@ -48,20 +32,24 @@ public:
             nullptr,
             0,
             false) {}
-    Measureand3D(const UUID &uuid) : Measureand3D(uuid, 0, 0, 0) {}
-    Measureand3D() = delete;
+    Measureand() = delete;
 
-    Measurement3D<A> init;
-    Measurement3D<A> last;
+    M init;
     GattCharacteristic spec;
+};
 
-    uint16_t count() { return *last.tp(); }
+template<typename M>
+struct Update
+{
+    Update(Measureand<M>* m, const M &s) : measureand(m), sample(s) {}
+    Update() = delete;
     
-    Update<Measurement3D<A>> update(A x, A y, A z)
+    Measureand<M>* measureand;
+    M sample;
+
+    void operator()(BLE* ble) 
     {
-        Measurement3D<A> next(x, y, z, count()+1);
-        last = next;
-        return Update<Measurement3D<A>> { &spec.getValueAttribute(), next };
+        (*ble).gattServer().write(measureand->spec.getValueHandle(), sample.buffer(), sample.length());
     }
 };
 
@@ -69,14 +57,14 @@ template<typename D, typename A>
 struct Sampler3D
 {
     int (D::*read)(A& x, A& y, A& z);
-    Measureand3D<A>* measureand;
+    Measureand<Measurement3D<A>>* measureand;
     Scheduler<BLE>* radio;
 
     void operator()(D* device)
     {
         A x, y, z;
         device->*read(x, y, x);
-        auto u = measureand->update(*x, *y, *z);
-        radio->submit(u);
+        auto sample = Measurement3D<A>(x, y, z, 0);
+        radio->submit(Update<Measurement3D<A>>(measureand, sample));
     }
 };
