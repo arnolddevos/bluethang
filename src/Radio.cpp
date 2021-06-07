@@ -9,27 +9,29 @@ using namespace ble;
 
 static Trace trace;
 
-struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Driver<BLE>
+struct RadioThread : Gap::EventHandler, GattServer::EventHandler
 {
-    RadioThread() : Driver(&BLE::Instance())
+    uint8_t buffer[50];
+    BLE& device;
+    Thread thread;
+    EventQueue queue;
+
+    RadioThread() : device(BLE::Instance()), queue(2048)
     {
-        if((*device).hasInitialized())
+        if(device.hasInitialized())
         { 
             trace("BLE controller already initialised");
             ready(nullptr);
         }
         else 
-            (*device).init(this, &RadioThread::ready);
+            device.init(this, &RadioThread::ready);
     }
 
     ~RadioThread()
     {
-        (*device).shutdown();
+        device.shutdown();
     }
-
-    Thread thread;
-    uint8_t buffer[50];
-
+    
     void ready(BLE::InitializationCompleteCallbackContext *context)
     {
         if(context && context->error)
@@ -43,8 +45,8 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Driver<BLE>
     void main()
     {
         trace("BLE thread running");
-        (*device).onEventsToProcess(makeFunctionPointer(this, &RadioThread::eventToProcess));
-        (*device).gap().setEventHandler(this);
+        device.onEventsToProcess(makeFunctionPointer(this, &RadioThread::eventToProcess));
+        device.gap().setEventHandler(this);
         startAdvertising();
         queue.dispatch_forever();
 
@@ -82,7 +84,7 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Driver<BLE>
     {
         ble_error_t error;
 
-        auto &gap = (*device).gap();
+        auto &gap = device.gap();
         auto handle = LEGACY_ADVERTISING_HANDLE;
 
         if (gap.isAdvertisingActive(handle)) {
@@ -127,12 +129,16 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler, Driver<BLE>
 
     void eventToProcess(BLE::OnEventsToProcessCallbackContext *context)
     {
-        queue.call(device, &BLE::processEvents);
+        queue.call(&device, &BLE::processEvents);
     }
 };
 
-Driver<BLE>& Radio::driver()
+const char* Radio::name = "Arduino Nano BLE";
+
+Scheduler<Radio>& Radio::scheduler()
 {
     static RadioThread inst;
-    return inst;
+    static Radio radio( inst.device );
+    static Scheduler<Radio> sched(radio, inst.queue);
+    return sched;
 }

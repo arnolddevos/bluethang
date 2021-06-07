@@ -4,11 +4,11 @@
 #include <ble/BLE.h>
 #include "Scheduler.h"
 
-class Radio : public Scheduler<BLE>
-{    
-public:
-    static constexpr const char* name = "Arduino Nano";
-    Radio() : Scheduler(&driver) {};
+struct Radio
+{
+    BLE& device;
+    static Scheduler<Radio>& scheduler();
+    static const char* name;
 private:
-    static Driver<BLE>& driver();
+    Radio(BLE& ble) : device(ble) {}
 };

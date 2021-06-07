@@ -1,9 +1,16 @@
 #include "Sensor.h"
 
-Driver<IMUControl>& Sensor::driver()
+using namespace mbed;
+using namespace rtos;
+using namespace events;
+
+Scheduler<Sensor>& Sensor::scheduler()
 {
-    static IMUControl device;
-    static Driver<IMUControl> inst(&device);
-    device.control.begin();
-    return inst;
+    static EventQueue queue(2048);
+    static Thread thread;
+    static Sensor sensor(IMU);
+    static Scheduler<Sensor> sched(sensor, queue);
+    thread.start(callback(&queue, &EventQueue::dispatch_forever));
+    queue.call(&sensor.device, &LSM9DS1Class::begin);
+    return sched;
 }

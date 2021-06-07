@@ -2,6 +2,7 @@
 #include <mbed.h>
 #include <ble/BLE.h>
 #include "Measurement.h"
+#include "Radio.h"
 
 using namespace mbed;
 using namespace ble;
@@ -13,8 +14,8 @@ struct Registration
  
     GattService service;
 
-    void operator()(BLE* ble ){
-        ble->gattServer().addService(service);
+    void operator()(Radio* radio ){
+        radio->device.gattServer().addService(service);
     }
 };
 
@@ -47,8 +48,8 @@ struct Update
     Measureand<M>* measureand;
     M sample;
 
-    void operator()(BLE* ble) 
+    void operator()(Radio* radio) 
     {
-        (*ble).gattServer().write(measureand->spec.getValueHandle(), sample.buffer(), sample.length());
+        radio->device.gattServer().write(measureand->spec.getValueHandle(), sample.buffer(), sample.length());
     }
 };
