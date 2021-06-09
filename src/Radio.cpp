@@ -9,47 +9,49 @@ using namespace ble;
 
 static Trace trace;
 
-struct RadioThread : Gap::EventHandler, GattServer::EventHandler
+struct RadioAdvert
 {
-    uint8_t buffer[50];
-    BLE& device;
-    Thread thread;
-    EventQueue queue;
+    RadioAdvert(const char* name) : advertName(name) {}
+    RadioAdvert() : advertName(nullptr) {}
+    const char* advertName;
+    void operator()(Radio*);
+};
 
-    RadioThread() : device(BLE::Instance()), queue(2048)
-    {
-        if(device.hasInitialized())
-        { 
-            trace("BLE controller already initialised");
-            ready(nullptr);
-        }
-        else 
-            device.init(this, &RadioThread::ready);
-    }
+struct RadioEvents;
 
-    ~RadioThread()
+struct RadioInit
+{
+    RadioInit(Scheduler<Radio>& scheduler, RadioEvents* e) : events(e) 
     {
-        device.shutdown();
+        scheduler.submit(*this);
     }
+    RadioEvents* events;
+    void operator()(Radio*);
+};
+
+struct RadioProcess
+{
+    void operator()(Radio*);
+};
+
+struct RadioEvents : Gap::EventHandler
+{
+    RadioEvents(Scheduler<Radio>& s) : scheduler(s) {}
+
+    Scheduler<Radio>& scheduler;
     
     void ready(BLE::InitializationCompleteCallbackContext *context)
     {
         if(context && context->error)
         {
-            trace.format("BLE controller failed to initialise with %x", context->error);
+            trace.format("BLE failed to initialise with %x", context->error);
             return;
         }
-        thread.start(callback(this, &RadioThread::main));
-    }
-
-    void main()
-    {
-        trace("BLE thread running");
-        device.onEventsToProcess(makeFunctionPointer(this, &RadioThread::eventToProcess));
-        device.gap().setEventHandler(this);
-        startAdvertising();
-        queue.dispatch_forever();
-
+        else
+        {
+            trace("BLE initialised");
+            scheduler.submit(RadioAdvert());
+        }
     }
 
     void onConnectionComplete(const ConnectionCompleteEvent &event) override
@@ -57,7 +59,7 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler
         if(event.getStatus()) 
         {
             trace("Failed connection");
-            queue.call(this, &RadioThread::startAdvertising);
+            scheduler.submit(RadioAdvert());
         }
         else
             trace("Conection opened");
@@ -66,7 +68,7 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler
     void onDisconnectionComplete(const DisconnectionCompleteEvent &event) override
     {
         trace("Connection closed");
-        queue.call(this, &RadioThread::startAdvertising);
+        scheduler.submit(RadioAdvert());
     }
 
     void onAdvertisingStart(const AdvertisingStartEvent &event) override
@@ -77,68 +79,102 @@ struct RadioThread : Gap::EventHandler, GattServer::EventHandler
     void onAdvertisingEnd(const AdvertisingEndEvent &event) override
     {
         trace("Advertising stopped");
-        queue.call(this, &RadioThread::startAdvertising);
-    }
-
-    void startAdvertising()
-    {
-        ble_error_t error;
-
-        auto &gap = device.gap();
-        auto handle = LEGACY_ADVERTISING_HANDLE;
-
-        if (gap.isAdvertisingActive(handle)) {
-            trace("Advertising already started");
-            return;
-        }
-
-        AdvertisingParameters params(
-            advertising_type_t::CONNECTABLE_UNDIRECTED,
-            adv_interval_t(millisecond_t(40))
-        );
-
-        error = gap.setAdvertisingParameters(handle, params);
-
-        if (error) {
-            trace.format("_ble.gap().setAdvertisingParameters() failed with %x\r\n", error);
-            return;
-        }
-
-        AdvertisingDataBuilder builder(buffer);
-        builder.clear();
-        builder.setFlags();
-        builder.setName(Radio::name);
-
-        /* Set payload for the set */
-        error = gap.setAdvertisingPayload( handle, builder.getAdvertisingData());
-
-        if (error) {
-            trace.format("Gap::setAdvertisingPayload() failed with %x\r\n", error);
-            return;
-        }
-
-        error = gap.startAdvertising(handle, adv_duration_t(millisecond_t(4000)));
-
-        if (error) {
-            trace.format("Gap::startAdvertising() failed with %x\r\n", error);
-            return;
-        }
-
-        trace.format("Advertising as: %s\r\n", Radio::name);
+        // scheduler.submit(RadioAdvert());
     }
 
     void eventToProcess(BLE::OnEventsToProcessCallbackContext *context)
     {
-        queue.call(&device, &BLE::processEvents);
+        scheduler.submit(RadioProcess());
     }
 };
 
-const char* Radio::name = "Arduino Nano BLE";
+void RadioProcess::operator()(Radio* radio)
+{
+    radio->device.processEvents();
+}
+
+void RadioInit::operator()(Radio* radio)
+{
+    auto &device = radio->device;
+    device.onEventsToProcess(makeFunctionPointer(events, &RadioEvents::eventToProcess));
+    device.gap().setEventHandler(events);
+
+    if(device.hasInitialized())
+    { 
+        trace("BLE already initialised");
+        events->ready(nullptr);
+    }
+    else 
+    {
+        trace("Requesting BLE initialisation");
+        device.init(events, &RadioEvents::ready);
+    }
+}
+
+void RadioAdvert::operator()(Radio* radio)
+{
+    ble_error_t error;
+
+    auto &gap = radio->device.gap();
+    auto handle = LEGACY_ADVERTISING_HANDLE;
+    auto name =  advertName ? advertName : radio->advertName;
+
+    if(! name )
+    {
+        trace("Advertising not started, no name given");
+        return;
+    }
+
+    if (gap.isAdvertisingActive(handle)) 
+    {
+        trace("Advertising will be stopped and restarted");
+        gap.stopAdvertising(handle);
+    }
+
+    AdvertisingParameters params(
+        advertising_type_t::CONNECTABLE_UNDIRECTED,
+        adv_interval_t(millisecond_t(40))
+    );
+
+    error = gap.setAdvertisingParameters(handle, params);
+
+    if (error) {
+        trace.format("setAdvertisingParameters() failed with %x\r\n", error);
+        return;
+    }
+
+    AdvertisingDataBuilder builder(radio->advertBuffer);
+    builder.clear();
+    builder.setFlags();
+    builder.setName(name);
+
+    /* Set payload for the set */
+    error = gap.setAdvertisingPayload( handle, builder.getAdvertisingData());
+
+    if (error) {
+        trace.format("setAdvertisingPayload() failed with %x\r\n", error);
+        return;
+    }
+
+    error = gap.startAdvertising(handle);
+
+    if (error) {
+        trace.format("startAdvertising() failed with %x\r\n", error);
+        return;
+    }
+
+    radio->advertName = name;
+
+    trace.format("Advertising as: %s\r\n", name);
+}
 
 Scheduler<Radio>& Radio::scheduler()
 {
-    static RadioThread inst;
-    static Radio radio( inst.device );
-    static Scheduler<Radio> sched(radio, inst.queue);
-    return sched;
+    static Worker worker;
+    static Radio radio( BLE::Instance() );
+    static Scheduler<Radio> scheduler(radio, worker);
+    static RadioEvents events(scheduler);
+    static RadioInit init(scheduler, &events);
+
+    return scheduler;
 }
