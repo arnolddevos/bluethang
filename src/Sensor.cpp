@@ -4,13 +4,24 @@ using namespace mbed;
 using namespace rtos;
 using namespace events;
 
+struct SensorInit
+{
+    SensorInit(Scheduler<Sensor>& scheduler)
+    {
+        scheduler.submit(*this);
+    }
+
+    void operator()(Sensor* sensor)
+    {
+        sensor->device.begin();
+    }
+};
+
 Scheduler<Sensor>& Sensor::scheduler()
 {
-    static EventQueue queue(2048);
-    static Thread thread;
+    static Worker worker;
     static Sensor sensor(IMU);
-    static Scheduler<Sensor> sched(sensor, queue);
-    thread.start(callback(&queue, &EventQueue::dispatch_forever));
-    queue.call(&sensor.device, &LSM9DS1Class::begin);
-    return sched;
+    static Scheduler<Sensor> scheduler(sensor, worker);
+    static SensorInit init(scheduler);
+    return scheduler;
 }
