@@ -4,8 +4,8 @@
 #include "Sensor.h"
 
 static Measureand<Measurement3D<float>> accel(0xA201);
-static Measureand<Measurement3D<float>> magne(0xA201);
-static Measureand<Measurement3D<float>> gyros(0xA201);
+static Measureand<Measurement3D<float>> magne(0xA202);
+static Measureand<Measurement3D<float>> gyros(0xA203);
 static GattCharacteristic* specs[] = { &accel.spec, &magne.spec, &gyros.spec };
 static Registration registration(0xA200, specs, 3);
 
