@@ -6,13 +6,11 @@ class Trace
 public:
     const boolean tracing = true;
 
-    inline void format(const char* format, ...)
+    template<typename... Ts>
+    inline void format(const char* format, Ts... args)
     {
         if(tracing) 
-        {
-            va_list args;
-            serial().printf(format, args);
-        }
+            serial().printf(format, args...);
     }
 
     inline void operator()(const char* msg)
