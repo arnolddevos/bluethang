@@ -2,6 +2,7 @@
 #include "Measurement.h"
 #include "Measureand.h"
 #include "Sensor.h"
+#include "Trace.h"
 
 static Measureand<Measurement3D<float>> accel(0xA201);
 static Measureand<Measurement3D<float>> magne(0xA202);
@@ -27,7 +28,21 @@ struct Sampler
 
 int main()
 {
+    Trace trace;
+    trace("Delaying");
+    wait_us(10000000);
+    trace("Starting");
     Radio::scheduler().submit(registration);
     Radio::scheduler().submit(Update<Measurement3D<float>>(&accel, Measurement3D<float>(1,2,3,0)));
+    auto &ble = BLE::Instance();
+    for(;;)
+    {
+        wait_us(5000000);
+        if(ble.hasInitialized())
+            trace("tick");
+        else
+            trace("BLE not running");
+
+    }
     return 0;
 }
